@@ -22,9 +22,12 @@ def require_key(x_api_key: str | None) -> None:
         raise HTTPException(status_code=401, detail="invalid api key")
 
 
-def fmt_ts(value: str) -> str:
+def fmt_ts(value: str | None) -> str | None:
     # "2026-08-21T04:05:00" -> "2026-08-21 04:05"
-    return value[:16].replace("T", " ")
+    if isinstance(value, str):
+        return value[:16].replace("T", " ")
+
+    return None
 
 
 def device_to_dict(row) -> dict:
