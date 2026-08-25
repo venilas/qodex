@@ -109,13 +109,32 @@ def create_ticket(body: TicketIn, x_api_key: str | None = Header(default=None)):
 
 
 @app.get("/tickets")
-def list_tickets(status: str | None = None, limit: int = 50):
-    sql = "SELECT id, device_id, status, title, description, created_at, resolved_at FROM tickets"
+def list_tickets(
+    status: str | None = None, 
+    site: str | None = None,
+    limit: int = 50,
+):
+    sql = """
+    SELECT
+        t.id, t.device_id, d.site, t.status, t.title,
+        t.description, t.created_at, t.resolved_at
+    FROM tickets t
+    JOIN devices d ON d.id = t.device_id 
+    """
+
+    conditions: list[str] = []
     params: list = []
     if status:
-        sql += " WHERE status = ?"
+        conditions.append("t.status = ?")
         params.append(status)
-    sql += " ORDER BY id LIMIT ?"
+    if site:
+        conditions.append("d.site = ?")
+        params.append(site)
+
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
+
+    sql += " ORDER BY t.id DESC LIMIT ?"
     params.append(limit)
     with db.connect() as conn:
         rows = conn.execute(sql, params).fetchall()
