@@ -1,7 +1,7 @@
 """Kodex Devices: учёт устройств на объектах и обращений по ним. Подробности в README.md."""
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, status
 from pydantic import BaseModel
 
 from . import db
@@ -19,7 +19,10 @@ def startup() -> None:
 
 def require_key(x_api_key: str | None) -> None:
     if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid api key")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid api key"
+        )
 
 
 def fmt_ts(value: str | None) -> str | None:
@@ -64,7 +67,10 @@ def get_device(device_id: int):
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
         if row is None:
-            raise HTTPException(status_code=404, detail="device not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="device not found",
+            )
         result = device_to_dict(row)
         result["open_tickets"] = conn.execute(
             "SELECT COUNT(*) FROM tickets WHERE device_id = ? AND status = 'open'",
@@ -85,7 +91,13 @@ def create_ticket(body: TicketIn, x_api_key: str | None = Header(default=None)):
     with db.connect() as conn:
         dev = conn.execute("SELECT id FROM devices WHERE serial = ?", (body.serial,)).fetchone()
         if dev is None:
-            return {"error": "device not found", "serial": body.serial}
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "error": "device not found",
+                    "serial": body.serial
+                }
+            )
         cur = conn.execute(
             "INSERT INTO tickets (device_id, status, title, description, created_at) "
             "VALUES (?, 'open', ?, ?, ?)",
