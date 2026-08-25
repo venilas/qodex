@@ -128,8 +128,7 @@ def report_summary():
     sql = """
         SELECT d.site, d.serial, d.model, COUNT(t.id) AS open_tickets
         FROM devices d
-        LEFT JOIN tickets t ON t.device_id = d.id
-        WHERE t.status = 'open'
+        LEFT JOIN tickets t ON t.device_id = d.id AND t.status = 'open'
         GROUP BY d.id
         ORDER BY d.site, d.serial
     """
