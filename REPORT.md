@@ -34,3 +34,101 @@
   "open_tickets": 0
 }
 ```
+
+# Обращение 2
+
+
+
+## Причина
+
+SQL запрос исключал данные об устройствах у которых нет записей в БД насчет обращений.  
+Ранее `WHERE` фактически превращал `LEFT JOIN` в `INNER JOIN`, поэтому устройства пропадали из отчёта.
+
+## Как искал
+
+Ищем функцию отвечающаяя за ручку `/report/summary` и видим сырой SQL запрос, которая единственная отвечает за данные который получит пользователь.
+
+## Исправление
+
+Условие `t.status = 'open'` перенесено из `WHERE` в `LEFT JOIN`. Это сохраняет устройства без открытых обращений. 
+
+## Проверка
+
+В ответе на запрос `/report/summary` видим все 6 устройств из __"Полигон Север"__ вместо 4
+
+```json
+[
+  {
+    "site": "Депо Восток",
+    "serial": "SN-0201",
+    "model": "KDX-Gate",
+    "open_tickets": 1
+  },
+  {
+    "site": "Депо Восток",
+    "serial": "SN-0202",
+    "model": "KDX-Cam2",
+    "open_tickets": 0
+  },
+  {
+    "site": "Депо Восток",
+    "serial": "SN-0203",
+    "model": "KDX-Cam2",
+    "open_tickets": 1
+  },
+  {
+    "site": "Депо Восток",
+    "serial": "SN-0204",
+    "model": "KDX-Scale",
+    "open_tickets": 0
+  },
+  {
+    "site": "Полигон Север",
+    "serial": "SN-0401",
+    "model": "KDX-Cam2",
+    "open_tickets": 1
+  },
+  {
+    "site": "Полигон Север",
+    "serial": "SN-0402",
+    "model": "KDX-Cam2",
+    "open_tickets": 1
+  },
+  {
+    "site": "Полигон Север",
+    "serial": "SN-0403",
+    "model": "KDX-Gate",
+    "open_tickets": 1
+  },
+  {
+    "site": "Полигон Север",
+    "serial": "SN-0404",
+    "model": "KDX-Scale",
+    "open_tickets": 1
+  },
+  {
+    "site": "Полигон Север",
+    "serial": "SN-0405",
+    "model": "KDX-Cam2",
+    "open_tickets": 0
+  },
+  {
+    "site": "Полигон Север",
+    "serial": "SN-0406",
+    "model": "KDX-Cam2",
+    "open_tickets": 0
+  },
+  {
+    "site": "Станция Юг",
+    "serial": "SN-0301",
+    "model": "KDX-Cam2",
+    "open_tickets": 0
+  },
+  {
+    "site": "Станция Юг",
+    "serial": "SN-0302",
+    "model": "KDX-Gate",
+    "open_tickets": 1
+  }
+]
+```
