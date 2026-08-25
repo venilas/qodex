@@ -1,5 +1,5 @@
 """Kodex Devices: учёт устройств на объектах и обращений по ним. Подробности в README.md."""
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, Header, HTTPException, status
 from pydantic import BaseModel
@@ -102,7 +102,7 @@ def create_ticket(body: TicketIn, x_api_key: str | None = Header(default=None)):
             "INSERT INTO tickets (device_id, status, title, description, created_at) "
             "VALUES (?, 'open', ?, ?, ?)",
             (dev["id"], body.title, body.description,
-             datetime.utcnow().isoformat(timespec="seconds")),
+             datetime.now(UTC).isoformat(timespec="seconds")),
         )
         conn.commit()
     return {"id": cur.lastrowid, "status": "open"}
@@ -144,7 +144,7 @@ def list_tickets(
 @app.patch("/tickets/{ticket_id}/close")
 def close_ticket(ticket_id: int, x_api_key: str | None = Header(default=None)):
     require_key(x_api_key)
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = datetime.now(UTC).isoformat(timespec="seconds")
     with db.connect() as conn:
         conn.execute(
             "UPDATE tickets SET status = 'closed', resolved_at = ? WHERE id = ?",
@@ -170,7 +170,7 @@ def report_summary():
 
 @app.get("/report/offline")
 def report_offline(minutes: int = OFFLINE_AFTER_MIN):
-    cutoff = (datetime.utcnow() - timedelta(minutes=minutes)).isoformat(timespec="seconds")
+    cutoff = (datetime.now(UTC) - timedelta(minutes=minutes)).isoformat(timespec="seconds")
     sql = """
         SELECT serial, site, model, last_seen
         FROM devices
