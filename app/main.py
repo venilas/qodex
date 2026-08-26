@@ -1,7 +1,8 @@
 """Kodex Devices: учёт устройств на объектах и обращений по ним. Подробности в README.md."""
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
-from fastapi import FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from pydantic import BaseModel
 
 from . import db
@@ -17,7 +18,7 @@ def startup() -> None:
         db.init_schema(conn)
 
 
-def require_key(x_api_key: str | None) -> None:
+def require_key(x_api_key: str | None = Header(default=None)) -> None:
     if x_api_key != API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -86,8 +87,7 @@ class TicketIn(BaseModel):
 
 
 @app.post("/tickets")
-def create_ticket(body: TicketIn, x_api_key: str | None = Header(default=None)):
-    require_key(x_api_key)
+def create_ticket(body: TicketIn, x_api_key: None = Depends(require_key)):
     with db.connect() as conn:
         dev = conn.execute("SELECT id FROM devices WHERE serial = ?", (body.serial,)).fetchone()
         if dev is None:
@@ -110,9 +110,9 @@ def create_ticket(body: TicketIn, x_api_key: str | None = Header(default=None)):
 
 @app.get("/tickets")
 def list_tickets(
-    status: str | None = None, 
-    site: str | None = None,
-    limit: int = 50,
+    status: Annotated[str | None, Query()] = None, 
+    site: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(gt=0)] = 50,
 ):
     sql = """
     SELECT
@@ -142,8 +142,7 @@ def list_tickets(
 
 
 @app.patch("/tickets/{ticket_id}/close")
-def close_ticket(ticket_id: int, x_api_key: str | None = Header(default=None)):
-    require_key(x_api_key)
+def close_ticket(ticket_id: int, x_api_key: None = Depends(require_key)):
     now = datetime.now(UTC).isoformat(timespec="seconds")
     with db.connect() as conn:
         conn.execute(
@@ -169,7 +168,7 @@ def report_summary():
 
 
 @app.get("/report/offline")
-def report_offline(minutes: int = OFFLINE_AFTER_MIN):
+def report_offline(minutes: Annotated[int, Query(gt=0)] = OFFLINE_AFTER_MIN):
     cutoff = (datetime.now(UTC) - timedelta(minutes=minutes)).isoformat(timespec="seconds")
     sql = """
         SELECT serial, site, model, last_seen
