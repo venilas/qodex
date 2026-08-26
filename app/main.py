@@ -1,4 +1,5 @@
 """Kodex Devices: учёт устройств на объектах и обращений по ним. Подробности в README.md."""
+
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -22,7 +23,7 @@ def require_key(x_api_key: str | None = Header(default=None)) -> None:
     if x_api_key != API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid api key"
+            detail="invalid api key",
         )
 
 
@@ -66,7 +67,10 @@ def list_devices(site: str | None = None):
 @app.get("/devices/{device_id}")
 def get_device(device_id: int):
     with db.connect() as conn:
-        row = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM devices WHERE id = ?",
+            (device_id,),
+        ).fetchone()
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -89,28 +93,39 @@ class TicketIn(BaseModel):
 @app.post("/tickets")
 def create_ticket(body: TicketIn, x_api_key: None = Depends(require_key)):
     with db.connect() as conn:
-        dev = conn.execute("SELECT id FROM devices WHERE serial = ?", (body.serial,)).fetchone()
+        dev = conn.execute(
+            "SELECT id FROM devices WHERE serial = ?",
+            (body.serial,),
+        ).fetchone()
         if dev is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={
                     "error": "device not found",
-                    "serial": body.serial
-                }
+                    "serial": body.serial,
+                },
             )
         cur = conn.execute(
             "INSERT INTO tickets (device_id, status, title, description, created_at) "
             "VALUES (?, 'open', ?, ?, ?)",
-            (dev["id"], body.title, body.description,
-             datetime.now(UTC).isoformat(timespec="seconds")),
+            (
+                dev["id"],
+                body.title,
+                body.description,
+                datetime.now(UTC).isoformat(timespec="seconds"),
+            ),
         )
         conn.commit()
-    return {"id": cur.lastrowid, "status": "open"}
+
+    return {
+        "id": cur.lastrowid,
+        "status": "open",
+    }
 
 
 @app.get("/tickets")
 def list_tickets(
-    status: Annotated[str | None, Query()] = None, 
+    status: Annotated[str | None, Query()] = None,
     site: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(gt=0)] = 50,
 ):
@@ -150,7 +165,12 @@ def close_ticket(ticket_id: int, x_api_key: None = Depends(require_key)):
             (now, ticket_id),
         )
         conn.commit()
-    return {"id": ticket_id, "status": "closed", "resolved_at": now}
+
+    return {
+        "id": ticket_id,
+        "status": "closed",
+        "resolved_at": now,
+    }
 
 
 @app.get("/report/summary")
@@ -169,7 +189,9 @@ def report_summary():
 
 @app.get("/report/offline")
 def report_offline(minutes: Annotated[int, Query(gt=0)] = OFFLINE_AFTER_MIN):
-    cutoff = (datetime.now(UTC) - timedelta(minutes=minutes)).isoformat(timespec="seconds")
+    cutoff = (datetime.now(UTC) - timedelta(minutes=minutes)).isoformat(
+        timespec="seconds"
+    )
     sql = """
         SELECT serial, site, model, last_seen
         FROM devices
@@ -178,7 +200,11 @@ def report_offline(minutes: Annotated[int, Query(gt=0)] = OFFLINE_AFTER_MIN):
     """
     with db.connect() as conn:
         rows = conn.execute(sql, (cutoff,)).fetchall()
-    return {"cutoff_utc": cutoff, "minutes": minutes, "devices": [dict(r) for r in rows]}
+    return {
+        "cutoff_utc": cutoff,
+        "minutes": minutes,
+        "devices": [dict(r) for r in rows],
+    }
 
 
 @app.get("/report/closed/summary")
@@ -209,4 +235,5 @@ def report_closed_summary(
 
     with db.connect() as conn:
         rows = conn.execute(sql, (from_at, to_at)).fetchall()
+
     return [dict(r) for r in rows]
