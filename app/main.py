@@ -180,3 +180,34 @@ def report_offline(minutes: int = OFFLINE_AFTER_MIN):
     with db.connect() as conn:
         rows = conn.execute(sql, (cutoff,)).fetchall()
     return {"cutoff_utc": cutoff, "minutes": minutes, "devices": [dict(r) for r in rows]}
+
+
+@app.get("/report/closed/summary")
+def report_closed_summary(
+    from_at: datetime,
+    to_at: datetime,
+):
+    if from_at >= to_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date range",
+        )
+
+    sql = """
+        SELECT
+            d.site, d.serial, d.model, COUNT(t.id) AS closed_tickets,
+            AVG(
+                CAST(strftime('%s', t.resolved_at) AS INTEGER) - CAST(strftime('%s', t.created_at) AS INTEGER)
+            ) / 60 AS avg_minutes
+        FROM devices d
+        LEFT JOIN tickets t ON
+            t.device_id = d.id AND 
+            t.status = 'closed' AND t.resolved_at IS NOT NULL AND
+            resolved_at BETWEEN ? AND ?
+        GROUP BY d.id
+        ORDER BY d.site, d.serial
+    """
+
+    with db.connect() as conn:
+        rows = conn.execute(sql, (from_at, to_at)).fetchall()
+    return [dict(r) for r in rows]
