@@ -90,7 +90,7 @@ class TicketIn(BaseModel):
     description: str | None = None
 
 
-@app.post("/tickets")
+@app.post("/tickets", status_code=status.HTTP_201_CREATED)
 def create_ticket(body: TicketIn, x_api_key: None = Depends(require_key)):
     with db.connect() as conn:
         dev = conn.execute(
